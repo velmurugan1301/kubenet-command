@@ -1,0 +1,99 @@
+how to create appId, password, and tenantId?
+az account show
+
+az ad sp create-for-rbac --name <sp-name> --role Contributor --scopes /subscriptions/<subscription-id>
+
+  ex:-az ad sp create-for-rbac --name my-k8s-sp --role Contributor --scopes /subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+az login --service-principal -u <appId> -p <password> --tenant <tenantId>
+
+  
+--------------------ymlfile-------------------
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: stop-azure-service
+spec:
+  schedule: "45 9 * * 0,6"  # Runs at 9:45 AM every Sunday and Saturday
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: stop-azure-service
+            image: auctionindia.azurecr.io/adminapp-uat:29011430
+            env:
+            - name: ACTION
+              value: "Stop"
+            - name: AZURE_CLIENT_ID
+              value: "0692615a-6259-4f21-8abc-7a1516949c2d"
+            - name: AZURE_CLIENT_SECRET
+              value: "dxxcajsnxjnAOXOoioq2"
+            - name: AZURE_TENANT_ID
+              value: "d2c18657-a828-4a00-b31b-42101c923fa4"
+            - name: DEBUG
+              value: "true" # To enable debug mode in your script
+            command:
+              - /bin/bash
+              - -c
+              - |
+                echo "AZURE_CLIENT_ID: $AZURE_CLIENT_ID"
+                echo "AZURE_CLIENT_SECRET: $AZURE_CLIENT_SECRET"
+                echo "AZURE_TENANT_ID: $AZURE_TENANT_ID"
+                # Log the version of az CLI for debugging
+                az --version
+                # Authenticate using service principal
+                echo "Logging in to Azure using service principal..."
+                az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+                # Perform the desired action (stopping services, VMs, etc.)
+                echo "Stopping PROD_VM..."
+                az vm stop --name PROD_VM --resource-group myResourceGroup
+                echo "Stopping NON_VM..."
+                az vm stop --name NON_VM --resource-group myResourceGroup
+                echo "Stopping NON_DB..."
+                az vm stop --name NON_DB --resource-group myResourceGroup
+          restartPolicy: OnFailure
+
+
+------------------docker file---------------------
+FROM mcr.microsoft.com/azure-cli
+
+# Set working directory
+WORKDIR /app
+
+# Copy the script
+COPY start_stop_db.sh /app/start_stop_db.sh
+
+# Make the script executable
+RUN chmod +x /app/start_stop_db.sh
+
+# Set default command
+CMD ["/app/start_stop_db.sh"]
+
+
+-----------------shell-script----------------------
+#!/bin/bash
+
+# Login to Azure using Managed Identity or Service Principal
+az login --identity  # If running in AKS with Managed Identity
+# az login --service-principal -u <CLIENT_ID> -p <CLIENT_SECRET> --tenant <TENANT_ID> # If using a Service Principal
+
+# Set variables
+RESOURCE_GROUP="your-resource-group"
+SERVER_NAME="your-sql-server-name"
+DATABASE_NAME="your-database-name"
+ACTION=${ACTION:-"Stop"}  # Default to Stop if not provided
+
+if [[ "$ACTION" == "Stop" ]]; then
+    echo "Stopping SQL Database: $DATABASE_NAME"
+    az sql db update --resource-group $RESOURCE_GROUP --server $SERVER_NAME --name $DATABASE_NAME --capacity 0
+elif [[ "$ACTION" == "Start" ]]; then
+    echo "Starting SQL Database: $DATABASE_NAME"
+    az sql db update --resource-group $RESOURCE_GROUP --server $SERVER_NAME --name $DATABASE_NAME --capacity 1
+else
+    echo "Invalid action: $ACTION"
+    exit 1
+fi
+
+echo "Operation completed successfully."
+--------------------------------------------------------------------------------------------------
