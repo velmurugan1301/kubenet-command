@@ -1,0 +1,6 @@
+kubectl get pod -n <namespace>
+kubectl get service
+kubectl get cronjobs
+kubectl describe pod <pod-name>
+kubectl logs <pod-name>
+kubectl apply -f stop-sql-cronjob.yaml
