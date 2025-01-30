@@ -1,0 +1,7 @@
+docker ps
+docker service ps <servicename>
+docker service ls
+sudo docker stack rm $service
+sudo sed -i  "s/utm.1.0.*/$tag/" docker-compose.yml
+cd /$environment/$service/
+docker stack deploy --with-registry-auth --compose-file docker-compose.yml $service
