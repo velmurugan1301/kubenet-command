@@ -3,4 +3,6 @@ kubectl get service
 kubectl get cronjobs
 kubectl describe pod <pod-name>
 kubectl logs <pod-name>
+kubectl delete cronjob stop-azure-service -n cron
 kubectl apply -f stop-sql-cronjob.yaml
+kubectl exec -it <new-pod-name> -n cron -- /bin/bash
